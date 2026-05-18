@@ -1,0 +1,40 @@
+---
+tags:
+  - misc
+  - node information
+---
+
+# Node Information
+
+Find a node by its identifier and print detailed information about it.
+
+:::info
+This utility is useful for debugging and inspecting nodes during development.
+:::
+
+## JavaScript
+
+```javascript
+const outputUtil = require("OutputUtil");
+const resourceLocatorUtil = require("ResourceLocatorUtil");
+
+const node = resourceLocatorUtil.getNodeByIdentifier("12.3456789abcdef012345");
+
+out.print(outputUtil.getNodeInfoAsHTML(node));
+```
+
+## Velocity
+
+```velocity
+#set($outputUtil = $sitevisionUtils.getOutputUtil())
+#set($resourceLocatorUtil = $sitevisionUtils.getResourceLocatorUtil())
+
+#set($node = $resourceLocatorUtil.getNodeByIdentifier("12.3456789abcdef012345"))
+
+$outputUtil.getNodeInfoAsHTML($node)
+```
+
+## Notes
+
+- Replace the sample identifier with the identifier of the node you want to inspect.
+- If no node is found, verify that the identifier is correct and available in the current environment.

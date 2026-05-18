@@ -1,0 +1,68 @@
+---
+tags:
+  - misc
+  - search
+  - portlets
+  - addons
+---
+
+# Find Add-On by ID
+
+This script searches for a specific add-on by its ID and lists the nodes and portlets associated with it.
+
+:::warning
+Running this script on a system with many nodes can take a long time. Use with caution and consider executing it in a development environment.
+:::
+
+## Optimized Code
+
+```javascript
+const PropertyUtil = require('PropertyUtil');
+const SearchUtil = require('SearchUtil');
+const NodeTreeUtil = require('NodeTreeUtil');
+
+const addonNodeId = '12.3456789abcdef012345'; // Replace with the actual add-on ID
+
+const result = SearchUtil.search('*:*', null, 0, 99999);
+
+if (result.hasHits()) {
+  const hits = result.getHits();
+  const portletNodes = [];
+
+  while (hits.hasNext()) {
+    const hit = hits.next();
+    const node = hit.getNode();
+
+    NodeTreeUtil.findPortlets(node, (portlet) => PropertyUtil.getString(portlet, 'portletName') === addonNodeId)
+      .forEach((portlet) => {
+        portletNodes.push({
+          uri: hit.getField('uri'),
+          node: node.toString(),
+          portlet: portlet.toString(),
+        });
+      });
+  }
+
+  if (portletNodes.length > 0) {
+    out.println('<ol>');
+    portletNodes.forEach(({ uri, node, portlet }) => {
+      out.println(`<li><a href="${uri}">${node}</a>: ${portlet}</li>`);
+    });
+    out.println('</ol>');
+  }
+}
+```
+
+:::info
+The condition `PropertyUtil.getString(portlet, 'portletName') === addonNodeId` can be replaced with any other property check depending on how the add-on is identified in the portlet's properties. For example:
+
+```javascript
+PropertyUtil.getString(portlet, 'portletName') === 'html';
+```
+:::
+
+## Notes
+
+- The `portletNodes` array is used to collect all matching portlets before rendering the output.
+- Replace the `addonNodeId` with the ID of the add-on you want to search for.
+- Ensure the script is run in an environment where the `SearchUtil` and `NodeTreeUtil` modules are available.

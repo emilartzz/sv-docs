@@ -1,0 +1,29 @@
+misc:
+  label: Misc
+  permalink: /misc
+  description: Miscellaneous Sitevision documentation.
+
+search:
+  label: Search
+  permalink: /search
+  description: Search-related scripts and examples.
+
+portlets:
+  label: Portlets
+  permalink: /portlets
+  description: Portlet-focused documentation and utilities.
+
+addons:
+  label: Add-ons
+  permalink: /addons
+  description: Documentation for add-on discovery and usage.
+
+"node information":
+  label: Node Information
+  permalink: /node-information
+  description: Guides for inspecting and understanding node data.
+
+nodetypes:
+  label: Node Types
+  permalink: /node-types
+  description: Reference for Sitevision node type IDs.
