@@ -1,0 +1,214 @@
+---
+tags:
+  - webapps
+  - configuration
+---
+
+# Dynamic Target Audience Selector
+
+This example shows how to configure a dynamic target audience selector in a Sitevision WebApp configuration view.
+
+The page is divided into two parts:
+
+- A Velocity template that renders the settings UI.
+- A server route that resolves target audience groups and values used by the template.
+
+At runtime, these two parts form one loop:
+
+1. The route collects available target audience groups.
+2. The selected group (if any) is read from app data.
+3. The route resolves target audience values for that selected group.
+4. The template renders one default selector and one selector per resolved target audience value.
+5. Submitted values are stored under their input names and become available on the next request.
+
+## Velocity Template
+
+```html
+<div class="panel panel-primary">
+	<div class="panel-heading">
+		<h3 class="panel-title">
+			<%= i18n('defaultSettings') %>
+		</h3>
+	</div>
+
+	<div class="panel-body">
+		<div class="form-group">
+			<label>
+				<%= i18n('archiveOrFolderSelector') %>
+			</label>
+			<input type="hidden" class="form-control" data-component="page-list" name="archive-list-default"
+				data-types="sv:archive,sv:folder" required />
+			<p class="help-block">
+				<%= i18n('archiveOrFolderSelectorHelptext') %>
+			</p>
+		</div>
+
+		<div class="form-group">
+			<label>
+				<%= i18n('targetAudienceGroupRepositorySelector') %>
+			</label>
+			<select id="targetAudienceGroupRepositorySelector" name="targetAudienceGroupRepository" class="form-control"
+				required>
+				<% _.each(targetAudienceGroups, function(targetAudienceGroup) { %>
+					<option value="<%= targetAudienceGroup.id %>">
+						<%= targetAudienceGroup.name %>
+					</option>
+				<% }) %>
+			</select>
+			<p class="help-block">
+				<%= i18n('targetAudienceGroupRepositorySelectorHelptext') %>
+			</p>
+		</div>
+	</div>
+</div>
+
+<% _.each(targetAudienceValues, function(targetAudienceValue) { %>
+	<div>
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h3 class="panel-title">
+					<%= i18n('settings') %>
+					<%= i18n('for') %>
+					<%= targetAudienceValue.name %>
+				</h3>
+			</div>
+
+			<div class="panel-body">
+				<div class="form-group">
+					<label>
+						<%= i18n('archiveOrFolderSelector') %>
+					</label>
+					<input type="hidden" class="form-control" data-component="page-list"
+						name="archive-list-<%= targetAudienceValue.id %>" data-types="sv:archive,sv:folder" />
+					<p class="help-block">
+						<%= i18n('archiveOrFolderSelectorHelptext') %>
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+<% }) %>
+```
+
+## Server Route
+
+```javascript
+/* eslint-disable @typescript-eslint/no-var-requires */
+(() => {
+	const router = require("router");
+	const resourceLocatorUtil = require("ResourceLocatorUtil");
+	const nodeResolverUtil = require("NodeResolverUtil");
+	const properties = require('Properties');
+	const globalAppData = require("globalAppData");
+
+	router.get("/", (req, res) => {
+		const targetAudienceValues = [];
+		const selectedTargetGroup = globalAppData.get("targetAudienceGroupRepository");
+
+		if (selectedTargetGroup) {
+			const targetGroupRepository = resourceLocatorUtil.getNodeByIdentifier(selectedTargetGroup);
+			const targetGroupResolver = nodeResolverUtil.getTargetAudiencesResolver();
+
+			const targetRepositoryResolvedList = targetGroupResolver.resolve(targetGroupRepository);
+			if (targetRepositoryResolvedList) {
+				for (let n = 0; n < targetRepositoryResolvedList.size(); n++) {
+					const targetGroup = targetRepositoryResolvedList.get(n);
+					const name = properties.get(targetGroup, "displayName");
+					const id = properties.get(targetGroup, "jcr:uuid");
+
+					targetAudienceValues.push({ name, id });
+				}
+			}
+		}
+
+		const targetAudienceGroups = [];
+		const targetAudienceGroupRepository = resourceLocatorUtil.getTargetAudienceGroupRepository();
+		const targetAudienceGroupNodes = targetAudienceGroupRepository.getNodes();
+
+		while (targetAudienceGroupNodes.hasNext()) {
+			const targetAudienceGroupNode = targetAudienceGroupNodes.nextNode();
+			targetAudienceGroups.push({
+				name: properties.get(targetAudienceGroupNode, "displayName"),
+				id: properties.get(targetAudienceGroupNode, "jcr:uuid")
+			});
+		}
+
+		res.render({
+			targetAudienceGroups,
+			targetAudienceValues
+		});
+	});
+})();
+```
+
+## How It Works Together
+
+The route and template share a simple data contract. The route provides two arrays to `res.render(...)`:
+
+- `targetAudienceGroups`: all selectable target audience group repositories.
+- `targetAudienceValues`: resolved values inside the currently selected repository.
+
+The template consumes those arrays in two different places:
+
+1. It loops over `targetAudienceGroups` to create `<option>` rows in the repository `<select>`.
+2. It loops over `targetAudienceValues` to create dynamic `archive-list-<id>` fields.
+
+This means the number of generated archive/folder selectors is dynamic and depends on the selected repository.
+
+## Detailed Request Lifecycle
+
+1. The configuration page is opened and triggers `router.get("/")`.
+2. The route initializes `targetAudienceValues` as an empty array.
+3. The route reads `targetAudienceGroupRepository` from `globalAppData`.
+4. If a repository id exists:
+	- The node is resolved via `resourceLocatorUtil.getNodeByIdentifier(...)`.
+	- A target audience resolver is fetched via `nodeResolverUtil.getTargetAudiencesResolver()`.
+	- Resolved audience nodes are iterated.
+	- Each node is transformed into `{ name, id }` using `displayName` and `jcr:uuid`.
+5. Independently of selection, all target audience group repositories are collected from `getTargetAudienceGroupRepository().getNodes()`.
+6. The route renders the template with both arrays.
+7. The template always shows:
+	- A default archive/folder selector (`archive-list-default`).
+	- A repository selector (`targetAudienceGroupRepository`).
+8. The template conditionally shows one additional archive/folder selector per resolved audience value:
+	- `archive-list-<targetAudienceValue.id>`.
+
+## Data Model and Naming Strategy
+
+The naming strategy is what makes this setup maintainable:
+
+- Static keys:
+  - `targetAudienceGroupRepository`
+  - `archive-list-default`
+- Dynamic keys:
+  - `archive-list-<targetAudienceId>`
+
+Because dynamic field names include the target audience id, each saved selection can be tied to exactly one audience value without extra mapping tables.
+
+## Why There Is a Default Selector
+
+`archive-list-default` acts as a fallback when no audience-specific value exists or when no target audience group has been selected yet. This prevents empty behavior and gives editors a baseline source.
+
+## Practical Example
+
+If the selected target audience group resolves to three values:
+
+- Students (`uuid-a`)
+- Staff (`uuid-b`)
+- Alumni (`uuid-c`)
+
+then the form will render these keys:
+
+- `archive-list-default`
+- `archive-list-uuid-a`
+- `archive-list-uuid-b`
+- `archive-list-uuid-c`
+
+On later reads, your runtime logic can choose the most specific key first and fall back to `archive-list-default` when needed.
+
+## Notes
+
+- `targetAudienceGroupRepository` stores the currently selected target audience group in app data.
+- Each rendered `archive-list-<targetAudienceId>` field allows individual archive or folder configuration per target audience value.
+- Keep i18n keys synchronized with the template labels and help texts.
+- The route is intentionally defensive: if no group is selected, `targetAudienceValues` remains empty and only default settings are shown.
