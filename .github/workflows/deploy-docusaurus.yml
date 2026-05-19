@@ -42,5 +42,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: live
           publish_dir: ./build
-          cname: docs.sv.warelius.se
+          cname: docs.sv.warelius.net
           force_orphan: true
