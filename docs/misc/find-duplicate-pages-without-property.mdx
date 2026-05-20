@@ -1,0 +1,200 @@
+
+---
+tags:
+    - misc
+    - search
+    - pages
+---
+
+# Find Duplicate Pages Without Unique Meta Title
+
+Find duplicate page or article names per language and list entries where the meta title is missing or not unique.
+
+:::info
+This script helps identify duplicate content candidates where a shared name is not disambiguated by a unique page title.
+:::
+
+## What It Does
+
+- Searches for nodes of type `article` and `page`.
+- Excludes a configured subtree path.
+- Excludes nodes that use configured templates.
+- Groups results by `name + locale`.
+- Keeps only groups with more than one entry.
+- Marks entries as unresolved when:
+    - meta title is missing, or
+    - meta title exists but is duplicated within the group.
+
+## Configuration
+
+Update these values before running:
+
+- `-path:<identifier>/*`: subtree to exclude from the scan.
+- `notAllowedTemplates`: template identifiers to exclude.
+- `search("*", 99999)`: max number of hits to return.
+
+## JavaScript
+
+```javascript
+const resourceLocatorUtil = require('ResourceLocatorUtil');
+const nodeTreeUtil = require('NodeTreeUtil');
+const outputUtil = require('OutputUtil');
+const properties = require('Properties');
+const searchFactory = require('SearchFactory');
+const propertyUtil = require('PropertyUtil');
+const nodeTypeUtil = require('NodeTypeUtil');
+
+const searcherBuilder = searchFactory.getSearcherBuilder();
+const filterBuilder = searchFactory.getFilterBuilder();
+
+filterBuilder.addFilterQuery('+svtype:(article OR page)');
+filterBuilder.addFilterQuery('-path:19.123456789abcdef0123456789abcdef/*'); // Exclude all nodes under the specified path
+
+let notAllowedTemplates = [
+    '91.123456789abcdef0123456789abcdef', // Add more template IDs as needed
+];
+
+notAllowedTemplates.forEach(function (template) {
+    filterBuilder.addFilterQuery('-template:' + template);
+});
+
+function normalizeMetaTitle(metaTitle) {
+    return metaTitle ? metaTitle.trim() : '';
+}
+
+const searcher = searcherBuilder.setFilter(filterBuilder.build()).build().search('*', 99999);
+
+if (searcher.hasHits()) {
+    const groupedByNameAndLanguage = new Map();
+    let hits = searcher.getHits();
+
+    while (hits.hasNext()) {
+        let hit = hits.next();
+        let hitNode = hit.getNode();
+        if (!hitNode) {
+            continue;
+        }
+
+        let name = nodeTypeUtil.isArticle(hitNode)
+            ? propertyUtil.getString(hitNode, 'articleName')
+            : propertyUtil.getString(hitNode, 'displayName');
+
+        let url = propertyUtil.getString(hitNode, 'URL');
+        let metaTitle = propertyUtil.getString(hitNode, 'pageTitle');
+        let language = propertyUtil.getString(hitNode, 'locale');
+
+        let key = name + '::' + language;
+
+        if (!groupedByNameAndLanguage.has(key)) {
+            groupedByNameAndLanguage.set(key, {
+                name: name,
+                language: language,
+                entries: [],
+            });
+        }
+
+        groupedByNameAndLanguage.get(key).entries.push({
+            url: url,
+            metaTitle: metaTitle,
+        });
+    }
+
+    out.print('<h1 class="env-text">Duplicate names in articles and pages</h1><br />');
+
+    const unresolvedGroups = [];
+
+    groupedByNameAndLanguage.forEach(function (group) {
+        const entries = group.entries;
+
+        if (entries.length <= 1) {
+            return;
+        }
+
+        const metaTitleCounts = new Map();
+
+        entries.forEach(function (entry) {
+            const normalizedMetaTitle = normalizeMetaTitle(entry.metaTitle);
+
+            if (normalizedMetaTitle === '') {
+                return;
+            }
+
+            if (!metaTitleCounts.has(normalizedMetaTitle)) {
+                metaTitleCounts.set(normalizedMetaTitle, 0);
+            }
+
+            metaTitleCounts.set(normalizedMetaTitle, metaTitleCounts.get(normalizedMetaTitle) + 1);
+        });
+
+        const unresolvedEntries = entries.filter(function (entry) {
+            const normalizedMetaTitle = normalizeMetaTitle(entry.metaTitle);
+
+            if (normalizedMetaTitle === '') {
+                return true;
+            }
+
+            return metaTitleCounts.get(normalizedMetaTitle) > 1;
+        });
+
+        if (unresolvedEntries.length > 0) {
+            unresolvedGroups.push({
+                name: group.name,
+                language: group.language,
+                entries: unresolvedEntries,
+            });
+        }
+    });
+
+    out.print('<p class="env-text">Total ' + unresolvedGroups.length + '</p>');
+    unresolvedGroups.sort(function (a, b) {
+        return b.entries.length - a.entries.length;
+    });
+
+    unresolvedGroups.forEach(function (group) {
+        out.print(
+            '<div>' +
+                "<b><span class='env-text'>" +
+                group.name +
+                ' (' +
+                group.language +
+                ') total: ' +
+                group.entries.length +
+                '</span></b>'
+        );
+
+        out.print('<ul>');
+
+        group.entries.forEach(function (entry) {
+            let metaTitleText = normalizeMetaTitle(entry.metaTitle) !== '' ? entry.metaTitle : '[Missing meta title]';
+
+            out.print(
+                '<li>' +
+                    '<a class="env-text" href="' +
+                    entry.url +
+                    '">' +
+                    entry.url +
+                    '</a>' +
+                    '  :: <span class="env-text">' +
+                    metaTitleText +
+                    '</span>' +
+                    '</li>'
+            );
+        });
+
+        out.print('</ul>');
+        out.println('</div><br />');
+    });
+}
+```
+
+## Output
+
+The output is grouped by `name (locale)` and sorted by descending group size. Each list item shows:
+
+- URL
+- meta title value, or `[Missing meta title]`
+
+## Notes
+
+- Large sites may require increasing the search limit or narrowing the search filters.
+- Some unused imports can be removed if you want a cleaner script, but they do not affect execution.
