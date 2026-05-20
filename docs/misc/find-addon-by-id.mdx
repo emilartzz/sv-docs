@@ -21,35 +21,33 @@ const PropertyUtil = require('PropertyUtil');
 const SearchUtil = require('SearchUtil');
 const NodeTreeUtil = require('NodeTreeUtil');
 
-const addonNodeId = '12.3456789abcdef012345'; // Replace with the actual add-on ID
+const addonNodeIds = ['12.3456789abcdef012345', 12.3456789abcdef012345]; // Replace with the actual add-on ID
 
-const result = SearchUtil.search('*:*', null, 0, 99999);
+const result = SearchUtil.search('*:*', null, 0, 9999);
 
-if (result.hasHits()) {
-  const hits = result.getHits();
-  const portletNodes = [];
-
-  while (hits.hasNext()) {
-    const hit = hits.next();
-    const node = hit.getNode();
-
-    NodeTreeUtil.findPortlets(node, (portlet) => PropertyUtil.getString(portlet, 'portletName') === addonNodeId)
-      .forEach((portlet) => {
-        portletNodes.push({
-          uri: hit.getField('uri'),
-          node: node.toString(),
-          portlet: portlet.toString(),
+if(result.hasHits()) {
+    out.println('<table class="env-table env-table--large env-table--borders-around">');
+    out.println('<thead>');
+    out.println('<tr>');
+    out.println('<th>Page</th>');
+    out.println('<th>Portlet</th>');
+    out.println('</tr>');
+    out.println('</thead>');
+    out.println('<tbody>');
+    let hits = result.getHits();
+    while(hits.hasNext()) {
+        let hit = hits.next();
+        let hitNode = hit.getNode();
+        let foundPortlets = NodeTreeUtil.findPortlets(hitNode, (portlet) => addonNodeIds.includes(PropertyUtil.getString(portlet, 'portletName'))).toArray();
+        foundPortlets.forEach((portlet) => {
+          out.println('<tr>');
+          out.println('<td><a href="' + hit.getField('uri') + '">' + hitNode.toString() + '</a></td>');
+          out.println('<td>' + portlet.toString() + '</td>');
+          out.println('</tr>');
         });
-      });
-  }
-
-  if (portletNodes.length > 0) {
-    out.println('<ol>');
-    portletNodes.forEach(({ uri, node, portlet }) => {
-      out.println(`<li><a href="${uri}">${node}</a>: ${portlet}</li>`);
-    });
-    out.println('</ol>');
-  }
+    }
+    out.println('</tbody>');
+    out.println('</table>');
 }
 ```
 
@@ -57,7 +55,40 @@ if (result.hasHits()) {
 The condition `PropertyUtil.getString(portlet, 'portletName') === addonNodeId` can be replaced with any other property check depending on how the add-on is identified in the portlet's properties. For example:
 
 ```javascript
-PropertyUtil.getString(portlet, 'portletName') === 'html';
+
+const PropertyUtil = require('PropertyUtil');
+const SearchUtil = require('SearchUtil');
+const NodeTreeUtil = require('NodeTreeUtil');
+
+const addonNodeIds = ['dbform', "form"]; // Replace with the actual add-on ID
+
+const result = SearchUtil.search('*:*', null, 0, 9999);
+
+if(result.hasHits()) {
+    out.println('<table class="env-table env-table--large env-table--borders-around">');
+    out.println('<thead>');
+    out.println('<tr>');
+    out.println('<th>Page</th>');
+    out.println('<th>Portlet</th>');
+    out.println('</tr>');
+    out.println('</thead>');
+    out.println('<tbody>');
+    let hits = result.getHits();
+    while(hits.hasNext()) {
+        let hit = hits.next();
+        let hitNode = hit.getNode();
+        let foundPortlets = NodeTreeUtil.findPortlets(hitNode, (portlet) => addonNodeIds.includes(PropertyUtil.getString(portlet, 'portletName'))).toArray();
+        foundPortlets.forEach((portlet) => {
+          out.println('<tr>');
+          out.println('<td><a href="' + hit.getField('uri') + '">' + hitNode.toString() + '</a></td>');
+          out.println('<td>' + portlet.toString() + '</td>');
+          out.println('</tr>');
+        });
+    }
+    out.println('</tbody>');
+    out.println('</table>');
+}
+
 ```
 :::
 
