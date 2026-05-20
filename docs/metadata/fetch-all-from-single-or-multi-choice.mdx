@@ -1,0 +1,87 @@
+---
+tags:
+    - metadata
+    - sitevision
+    - typescript
+---
+
+# Fetch All from Single or Multi Choice Metadata
+
+This utility retrieves all configured options from a Sitevision single choice or multi choice metadata definition.
+
+The implementation below is based on a direct metadata node lookup with `globalAppData.getNode("subject-metadata")` and returns a `string[]` with each alternative's `displayName`.
+
+Typical use cases:
+
+- populate dropdowns/selectors in custom modules,
+- validate incoming values against allowed metadata options,
+- build export/reporting helpers that depend on metadata alternatives.
+
+## Prerequisites
+
+- `globalAppData` must contain a node value for the key `subject-metadata`.
+- the metadata definition must contain child nodes for each selectable alternative.
+- code must run server-side in Sitevision (Data, Script, RESTApp, etc.).
+
+## How It Works
+
+1. Reads the metadata definition node from `globalAppData.getNode("subject-metadata")`.
+2. Iterates through child nodes (one child per alternative).
+3. Reads each node's `displayName`.
+4. Pushes each value into a `subjects` string array.
+5. Returns all collected values (or an empty array if nothing is found).
+
+## Usage Example
+
+```typescript
+const subjects = getSubjects();
+
+subjects.forEach((subject) => {
+    console.log(subject);
+});
+```
+
+## Tips & Best Practices
+
+- **Keep key names stable:** If you rename `subject-metadata`, update both code and stored app data.
+- **Null-safe handling:** Always guard the metadata node lookup and skip empty display names.
+- **Consistent return type:** This version returns `string[]`. If you later need richer data, switch to typed objects and update all consumers.
+- **Avoid client-side usage:** Sitevision server APIs are not available in browser code.
+- **Duplicate values:** If editors can create same `displayName` multiple times, consider deduplication before returning.
+
+---
+
+## Implementation
+
+```typescript
+import globalAppData from "@sitevision/api/server/globalAppData";
+import propertyUtil from "@sitevision/api/server/PropertyUtil";
+import type { Node } from "@sitevision/api/types/javax/jcr/Node";
+
+export const getSubjects = (): string[] => {
+    const subjects: string[] = [];
+    const metadataNode = globalAppData.getNode("subject-metadata") as Node | null;
+
+    if (metadataNode) {
+        const metadataAlternativeIterator = metadataNode.getNodes();
+
+        while (metadataAlternativeIterator.hasNext()) {
+            const metadataAlternativeNode = metadataAlternativeIterator.next() as Node;
+            const displayName = propertyUtil.getString(metadataAlternativeNode, "displayName");
+
+            if (displayName) {
+                subjects.push(displayName);
+            }
+        }
+    }
+
+    return subjects;
+};
+```
+
+## Common Pitfalls
+
+- Using `subjectMetadata` in docs while code uses `subject-metadata`.
+- Returning objects in some places and strings in others.
+- Forgetting to initialize `subjects` before pushing values.
+- Assuming this utility can run outside Sitevision server runtime.
