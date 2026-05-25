@@ -1,0 +1,7 @@
+{
+    "label": "Search Facets",
+    "link": {
+        "type": "generated-index",
+        "description": "This category contains documentation related to Search Facets in Sitevision CMS, including reference materials, guides, and other resources that focus on Search Facet development and usage."
+    }
+}

@@ -1,0 +1,53 @@
+---
+tags:
+  - search
+  - misc
+  - nodetypes
+---
+
+# Exclude Children of Nodes Under Restricted Paths
+
+Use this Velocity snippet in a Search Facets Solr query when you want to exclude all child nodes that live below one or more restricted paths.
+
+The script reads the configured `pathRestriction` values from a search node, finds the matching root nodes, and then emits a `-path:` clause for every child node below them. That keeps the query aligned with the configured restrictions instead of hard-coding paths in the facet definition.
+
+:::info
+This is useful when restricted paths can change over time and you want the search facet logic to follow the configuration automatically.
+:::
+
+## Velocity
+
+```velocity
+#set ($sitevisionUtils = $request.getAttribute('sitevision.utils'))
+#set ($propertyUtil = $sitevisionUtils.propertyUtil)
+#set ($resourceLocatorUtil = $sitevisionUtils.resourceLocatorUtil)
+
+#set ($searchNode = $resourceLocatorUtil.getNodeByIdentifier('12.40cb954019e48bbbb64e8a2'))
+#set ($pathRestrictions = $propertyUtil.getStrings($searchNode, 'pathRestriction'))
+
+#foreach ($path in $pathRestrictions)
+    #set ($restrictedNode = $resourceLocatorUtil.getNodeByIdentifier($path))
+    #set ($topLevelNodes = $restrictedNode.getNodes())
+
+    #foreach ($topLevelNode in $topLevelNodes)
+        #set ($childNodes = $topLevelNode.getNodes())
+
+        #foreach ($childNode in $childNodes)
+            -path:$childNode.getIdentifier()
+        #end
+    #end
+#end
+```
+
+## How It Works
+
+1. The search node is loaded by identifier.
+2. The `pathRestriction` property is read from that node.
+3. Each restricted path is resolved to a node.
+4. The script walks down two levels and prints a `-path:` exclusion for every child node it finds.
+
+## Notes
+
+- Replace the sample node identifier with the identifier of your Search Facets configuration node.
+- If your content tree is deeper or shallower, adjust the nested loops to match your structure.
+- The generated `-path:` clauses can be copied into the Solr query used by the Search Facets module.
