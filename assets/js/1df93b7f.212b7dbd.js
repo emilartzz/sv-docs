@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunksv_docs=self.webpackChunksv_docs||[]).push([["9452"],{5146(e,t,i){i.r(t),i.d(t,{default:()=>r});var n=i(4848),o=i(898),s=i(1085);function r(){let{siteConfig:e}=(0,o.A)();return(0,n.jsx)(s.A,{title:`${e.title} | Sitevision CMS developer documentation`,description:"Community-driven documentation for developers working with Sitevision CMS"})}}}]);
