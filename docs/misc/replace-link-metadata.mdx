@@ -1,0 +1,83 @@
+---
+tags:
+  - misc
+---
+
+# Replace Link Metadata
+
+Replace e-mail link metadata on pages that use a specific template and optionally republish already published pages.
+
+:::warning
+Test this script in a development environment first. It updates metadata values and can publish content.
+:::
+
+## What It Does
+
+- Iterates menu items under a configured start node.
+- Filters nodes by template identifier.
+- Reads a link metadata field (for example a contact e-mail link).
+- Rewrites the e-mail target from one domain to another.
+- Writes the updated link value back to metadata.
+- Republishes pages that are already published and not locked.
+
+## Script Variables
+
+Configure these script variables before running:
+
+| Variable | Type | Description |
+|---|---|---|
+| `startNode` | Node | Root node where the script starts iterating menu items. |
+| `templateId` | Node | Template node used for filtering, compared by identifier. |
+| `metadataKey` | String | Metadata property key for the link field to update. |
+
+## JavaScript
+
+```typescript
+const outputUtil = require('OutputUtil');
+const metadataUtil = require('MetadataUtil');
+const linkValueBuilder = require('LinkValueBuilder');
+const nodeIteratorUtil = require('NodeIteratorUtil');
+const propertyUtil = require('PropertyUtil');
+const publishingUtil = require('PublishingUtil');
+const publishStatus = require('PublishStatus');
+
+const startNode = scriptVariables.startNode;
+const templateId = scriptVariables.templateId;
+const metadataKey = scriptVariables.metadataKey;
+const FROM_DOMAIN = 'XXX.XX';
+const TO_DOMAIN = 'XXX.XX';
+
+const emailPages = nodeIteratorUtil.getMenuItems(startNode);
+while (emailPages.hasNext()) {
+    let emailPage = emailPages.nextNode();
+    let template = propertyUtil.getString(emailPage, 'template');
+    if (template == templateId.getIdentifier()) {
+        let metadataNode = metadataUtil.getLinkMetadataPropertyValue(emailPage, metadataKey);
+        let rawURI = propertyUtil.getString(metadataNode, 'rawURI');
+        let newMail = rawURI.replace(FROM_DOMAIN, TO_DOMAIN).replace('mailto:', '');
+
+        out.print('Name: ' + propertyUtil.getString(emailPage, 'articleName') + ' Old URI: ' + rawURI + ' New URI: ' + newMail + '<br/><br/>');
+
+        let linkValue = linkValueBuilder.setMailTarget(newMail).setName(propertyUtil.getString(emailPage, 'articleName')).build();
+
+        metadataUtil.setMetadataPropertyValue(emailPage, metadataKey, linkValue);
+        if (publishingUtil.getPublishStatus(emailPage) == publishStatus.PUBLISHED && publishingUtil.getPublishStatus(emailPage) != publishStatus.LOCKED) {
+            publishingUtil.publishNode(emailPage);
+        }
+    }
+}
+```
+
+## Utilities Used
+
+- `MetadataUtil`: reads and writes metadata property values.
+- `LinkValueBuilder`: creates a valid link metadata value for an e-mail target.
+- `NodeIteratorUtil`: iterates menu items under a start node.
+- `PropertyUtil`: reads node properties like `template`, `articleName`, and `rawURI`.
+- `PublishingUtil` + `PublishStatus`: checks publication status and republishes updated content.
+
+## Notes
+
+- The script expects `metadataKey` to point to a link metadata field with a `mailto:` value.
+- Only nodes matching the selected template are updated.
+- Published nodes are republished after metadata updates when they are not locked.
